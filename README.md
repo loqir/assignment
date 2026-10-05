@@ -20,7 +20,7 @@ That command overwrites the cache. Do not run it once this file is the audit tra
 
 Push the repository to GitHub, including `data/portfolio.csv` and `cache/fx_closes.csv`. On Streamlit Community Cloud, set the main file to `assignment/app.py` and the requirements file to `assignment/requirements.txt`.
 
-The hosted app downloads prices once each time the server wakes. A failed download leaves the saved cache in place, and the page says so. A local run does not download. Set `REFRESH_PRICES` to `1` in the environment when a host other than Community Cloud should download on wake. The portfolio and cache paths are anchored to the `assignment` folder, so the page finds them when the server starts at the repository root.
+The hosted app checks Yahoo once each time the server wakes. It saves the file only when Yahoo's last date is newer than the cache. A reprint of a date already in the file is ignored, so the page stays on the saved closes. A failed download leaves the saved cache in place, and the page says so. A local run does not download. Set `REFRESH_PRICES` to `1` in the environment when a host other than Community Cloud should download on wake. The portfolio and cache paths are anchored to the `assignment` folder, so the page finds them when the server starts at the repository root.
 
 ## How to check the numbers
 
@@ -72,7 +72,7 @@ data/portfolio.csv          cache/fx_closes.csv
 
 Read these in order. Each step is one function and one number on the page. The drawing code in `app.py` can wait until the numbers are clear.
 
-1. `app.py`, from `load_prices` to the end. It reads the two files, takes Start and End, calls `build_report`, and draws the report. There is no P&L formula in this file. A hosted run downloads prices once when the server wakes.
+1. `app.py`, from `load_prices` to the end. It reads the two files, takes Start and End, calls `build_report`, and draws the report. There is no P&L formula in this file. A hosted run checks Yahoo when the server wakes and saves a new date only.
 2. `load_portfolio` and `load_prices` in `src/data.py`. One row of the book, and one row of closes.
 3. `build_report` in `src/pnl.py`. Read the calls in the body from top to bottom. That order is the order of the screen. Then read the functions below, one at a time.
 4. `usd_per_currency`. USD is 1. EUR and AUD use the price. JPY, SGD, CNY, INR, and KRW use 1/price. Check USDJPY on 5 Oct: 1 / 157.675.

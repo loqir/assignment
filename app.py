@@ -243,7 +243,7 @@ def _wake_prices():
     if not _should_refresh():
         return ""
     try:
-        download_prices()
+        download_prices(only_if_newer=True)
     except Exception as error:
         text = str(error).splitlines()
         return text[0] if text else "price download failed"

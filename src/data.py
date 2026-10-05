@@ -54,8 +54,19 @@ YAHOO = {
     "USDKRW": "KRW=X",
 }
 
-def download_prices(path=CACHE_PATH):
-    # Overwrites the cache.
+def download_prices(path=CACHE_PATH, only_if_newer=False):
+    # Overwrites the cache. only_if_newer keeps the file when Yahoo's last date is already in it.
+    close = _fetch_closes()
+    if only_if_newer and not _has_newer_date(close, path):
+        return load_prices(path)
+    _check_against_cache(close, path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    close.to_csv(path, index_label="date")
+    return close
+
+
+def _fetch_closes():
+    # Returns Yahoo's daily closes. Does not write the cache.
     tickers = []
     yahoo_to_pair = {}
     for pair in PAIRS:
@@ -79,10 +90,17 @@ def download_prices(path=CACHE_PATH):
     close = close.set_index(date_column)
     for pair in close.columns:
         close[pair] = close[pair].where(close[pair] > 0)
-    _check_against_cache(close, path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    close.to_csv(path, index_label="date")
     return close
+
+
+def _has_newer_date(close, path):
+    # True when Yahoo's last date is after the cache, or the cache is missing.
+    if not path.exists() or len(close) == 0:
+        return True
+    saved = pd.read_csv(path, parse_dates=["date"], index_col="date")
+    if len(saved) == 0:
+        return True
+    return pd.Timestamp(close.index[-1]) > pd.Timestamp(saved.index[-1])
 
 
 def _check_against_cache(close, path):

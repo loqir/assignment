@@ -1,9 +1,13 @@
 """Hand checks for quote direction and the dollar/cross split. No cache."""
 
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
+from src.data import PAIRS, download_prices
 from src.pnl import _balances, _day_changes, _dollar_cross, _position_values, position_value, usd_per_currency
 
 
@@ -81,3 +85,26 @@ class DollarAndCross(unittest.TestCase):
         self.assertAlmostEqual(split.at[day, "dollar_pnl_usd"], dollar)
         self.assertAlmostEqual(split.at[day, "cross_pnl_usd"], cross)
         self.assertAlmostEqual(dollar + cross, jpy_pnl - 20_000)
+
+
+class SameDateKeepsTheFile(unittest.TestCase):
+    def test_a_reprint_of_the_last_date_is_not_written(self):
+        dates = pd.to_datetime(["2026-10-02", "2026-10-05"])
+        saved = pd.DataFrame(1.0, index=dates, columns=list(PAIRS))
+        saved["EURUSD"] = [1.10, 1.12]
+        reprint = saved.copy()
+        reprint["EURUSD"] = [1.10, 1.20]
+        newer = pd.DataFrame(1.0, index=list(dates) + [pd.Timestamp("2026-10-06")], columns=list(PAIRS))
+        newer["EURUSD"] = [1.10, 1.20, 1.21]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "fx_closes.csv"
+            saved.to_csv(path, index_label="date")
+            before = path.read_bytes()
+            with patch("src.data._fetch_closes", return_value=reprint):
+                kept = download_prices(path, only_if_newer=True)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertAlmostEqual(float(kept.iloc[-1, 0]), 1.12)
+            with patch("src.data._fetch_closes", return_value=newer):
+                written = download_prices(path, only_if_newer=True)
+            self.assertEqual(pd.Timestamp(written.index[-1]), pd.Timestamp("2026-10-06"))
+            self.assertAlmostEqual(float(written.iloc[-1, 0]), 1.21)
