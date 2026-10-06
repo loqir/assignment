@@ -128,11 +128,35 @@ def _book_history(values, day):
     return pd.DataFrame(rows)
 
 
+def _dealt_pnl(book, rates):
+    # Returns entry-to-close P&L on the first close on or after each trade date.
+    # Zero when the entry is that close. A weekend trade lands on the next close.
+    total = pd.Series(0.0, index=rates.index)
+    for trade in book.itertuples(index=False):
+        trade_date = pd.Timestamp(trade.trade_date).normalize()
+        later = rates.index[rates.index >= trade_date]
+        if len(later) == 0:
+            continue
+        mark = later[0]
+        base, quote = PAIRS[trade.currency_pair]
+        if quote == "USD":
+            foreign_amount = trade.notional_base
+            usd_then = trade.entry_price
+            usd_now = rates.at[mark, base]
+        else:
+            foreign_amount = -trade.notional_base * trade.entry_price
+            usd_then = 1.0 / trade.entry_price
+            usd_now = rates.at[mark, quote]
+        total.at[mark] = total.at[mark] + position_value(foreign_amount, usd_then, usd_now)
+    return total
+
+
 def _dollar_cross(quantities, rates):
-    # Returns Dollar and Cross per date. The two add back to that day's P&L.
-    # One vote per foreign currency held yesterday. A fill today is dealt at the close, so it adds nothing.
+    # Returns Dollar and Cross per date for balances already open yesterday.
+    # One vote per foreign currency held yesterday.
     # Dollar = yesterday's foreign net times that average.
     # Cross = each currency's move minus that average, times yesterday's USD value.
+    # A fill's entry-to-close P&L is not in here. _split_with_deals adds it to Cross.
     foreign = quantities.drop(columns="USD", errors="ignore")
     fx = rates.reindex(index=quantities.index, columns=foreign.columns)
     prev_qty = foreign.shift(1)
@@ -166,13 +190,13 @@ def _dollar_cross(quantities, rates):
     return pd.DataFrame({"dollar_pnl_usd": dollar_rows, "cross_pnl_usd": cross_rows}, index=quantities.index)
 
 
-def _foreign_leg(notional, entry, pair, usd_per_unit):
-    # Returns the foreign currency and its signed USD value. EURUSD uses the base. USDJPY uses the yen.
-    base, quote = PAIRS[pair]
-    if quote == "USD":
-        return base, notional * usd_per_unit[base]
-    balance = -notional * entry
-    return quote, balance * usd_per_unit[quote]
+def _split_with_deals(quantities, rates, book):
+    # Dollar stays yesterday's book. A fill dealt off the close is added to Cross on its first mark.
+    split = _dollar_cross(quantities, rates)
+    dealt = _dealt_pnl(book, rates).reindex(split.index)
+    split = split.copy()
+    split["cross_pnl_usd"] = split["cross_pnl_usd"] + dealt
+    return split
 
 
 def _ranked_day(pnl, rank):
@@ -439,10 +463,14 @@ def build_report(portfolio, prices, as_of, start):
     positions = _position_rows(book, prices, rates, values, day, var, start, as_of)
     exposure = _exposure_table(quantities, rates, as_of)
     window_history = _window_history(history, start, as_of)
-    split = _dollar_cross(quantities, rates)
+    split = _split_with_deals(quantities, rates, book)
     today = history.loc[history["date"] == as_of].iloc[0]
     day_pnl = float(today["day_pnl_usd"])
-    day_pnl_rank = float("nan") if pd.isna(day_pnl) else 1 + int((var["scaled_pnl"] > day_pnl).sum())
+    # The as-of replay is sized on today's dollar price. Day P&L is sized on the previous close.
+    # Leave that replay out so the day is not counted against a different copy of itself.
+    replay = var["scaled_pnl"]
+    replay = replay[replay.index != as_of]
+    day_pnl_rank = float("nan") if pd.isna(day_pnl) else 1 + int((replay > day_pnl).sum())
     window_pnl = positions["window_pnl_usd"]
     window_total = float("nan") if window_pnl.isna().any() else float(window_pnl.sum())
     inception_pnl = float(today["cumulative_pnl_usd"])

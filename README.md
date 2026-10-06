@@ -29,7 +29,7 @@ For each trade, P&L is calculated for all days that occur on/after the trade. Im
 - **Inception P&L** is that pair's value on the end date. P&L in the same pair on the same date are summed into that one row.
 
 - **Day P&L** is the move from the previous trading day to the End date. It is the row difference in Inception P&L.
-The day-P&L rank compares end date's PnL to the past 252 returns, using end date's positions (lower is better/more positive)
+The day-P&L rank compares end date's PnL to the past 252 returns, using end date's positions (lower is better/more positive). The end date's own replay is left out of that count.
 
 - **Window P&L** is the move from the Start date to the End date. A start and end date is customisable so that users can see how the result changes over a chosen period, for example a specific event window. Start changes Window P&L, the P&L history, and the exposure-over-time chart. It does not change the positions, day P&L, inception P&L, the currency exposure chart, or VaR.
 
@@ -100,7 +100,7 @@ The hosted page checks Yahoo once when the server wakes and writes the cache onl
 
 All currency pairs involve USD 
 
-Trades are recorded at mid close prices, so on the day that a trade is done, P&L = 0.
+Trades in this file are recorded at mid close prices, so on the day that a trade is done, P&L = 0. A fill dealt off the close puts that difference in Cross P&L.
 
 There is no carry involved in the calculations, so all P&L are from spot moves only.
 
