@@ -70,7 +70,7 @@ Each P&L is also attributed at a position level.
 ### VaR
 
 I was considering between 2 methods for calculating VaR - parametric and historical. 
-I decided with historical, especially in the context of Asian FX. Parametric method assumes normality of returns, which may not hold true for EM/Asian FX markets with fat tails, noisy estimations of the covariance matrix covariances. I felt that historical simulation would better encapsulate the co-movement of the FX pairs.
+I decided with historical, especially in the context of Asian FX. Parametric method assumes normality of returns, which may not hold true for EM/Asian FX markets with fat tails, noisy estimations of the covariance matrix and asymmetric covariances. I felt that historical simulation would better encapsulate the co-movement of the FX pairs.
 
 VaR defined to be 95%, one day, historical.
 The window is the last 252 returns ending on the marked date.  A full window is the 13th worst.
@@ -150,3 +150,7 @@ On the page, with Start 2026-01-02 and End 2026-10-05, six checks have to hold. 
 - The grey VaR line says 95%, 13th worst of 252 days (2026-01-26), and the date under the position table is the same day.
 
 A short calculator test of those two lines and the two-currency split is in `tests/test_book.py`. It does not use the cache.
+
+## Miscellaneous 
+
+There is a rough notebook walkthrough.ipynb that imports functions from pnl.py to experiment, debug and play with functions used in the data manipulation / calculation of metrics
