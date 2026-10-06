@@ -78,7 +78,7 @@ def _show(frame):
         "entry_price": ",.5f",
         "live_spot": ",.5f",
         "usd_per_unit": ".6g",
-        "marginal_var": ".2%",
+        "marginal_var": ".4f",
         "day_usd_return": ".2%",
     }
     out = frame.copy()
