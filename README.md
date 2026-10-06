@@ -96,6 +96,8 @@ P&L history is an integrated line chart and bar plot showcasing how the daily an
 
 The hosted page checks Yahoo once when the server wakes. A bar dated today is left out, because that day is still trading. If the latest finished date is already in the file, nothing is written. If Yahoo has a newer finished date, the file is replaced, so past dates are updated to the latest print as well.
 
+Mark date is thrown with an error if the end date does not match the date used in the data.
+
 ## Assumptions / Limitations
 
 All currency pairs involve USD 
@@ -112,7 +114,7 @@ Historical VaR uses a fixed 252 returns. A large shock drops out of that window 
 
 Gross exposure is the sum of absolute positions (base-leg) in USD and does not net longs against shorts. This is also different from sum of absolute currency exposures.
 
-Yahoo Finance can gap and it can revise history. The cache is what the app uses. A new finished date updates the whole cache, including past dates. Today's bar is not saved, because that day is still trading. If the day you pick is not a complete close, the book marks on the latest one and that line is red.
+Yahoo Finance can gap and it can revise history. The cache is what the app uses. A new finished date updates the whole cache, including past dates. Today's bar is not saved, because that day is still trading. If the day picked is not a complete close, the book marks on the latest one the mark is thrown with an error
 
 Onshore CNY is used instead of CNH
 
@@ -153,4 +155,4 @@ A short calculator test of those two lines and the two-currency split is in `tes
 
 ## Miscellaneous 
 
-There is a rough notebook walkthrough.ipynb that imports functions from pnl.py to experiment, debug and play with functions used in the data manipulation / calculation of metrics
+There is a rough notebook `walkthrough.ipynb` that imports functions from pnl.py to experiment, debug and play with functions used in the data manipulation / calculation of metrics

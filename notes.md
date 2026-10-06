@@ -84,7 +84,7 @@ EURUSD and AUDUSD are already dollars, so the VaR return is the pair's own perce
 
 A missing close kills that day's return and the next day's. Those days are dropped. The window is not pulled earlier to fill the gap. A tie keeps the later date.
 
-Day-P&L rank = 1 + how many of the other days beat it. 1st is the best day. The marked day is left out of that count. The replay of that day is sized on today's dollar price, and the booked day P&L is sized on the previous close, so they are not the same number.
+Day-P&L rank = 1 + how many of the other days beat it. 1st is the best day. The marked day is left out of that count.
 
 Component VaR is 0 if that currency did not move. Worst-day P&L is signed (a profit is positive). Hedge benefit can come out negative.
 
@@ -101,15 +101,12 @@ Pair sizes on 5 Oct: USDJPY 10,000,000, USDSGD 8,000,000, USDINR 6,000,000, EURU
 
 ## Other stuff
 
-- Closes are mids. Not a bid/offer, and not a Tokyo or New York fix.
+- Closes are mids.
 - No crosses like EURJPY in the book. Cross P&L is the split inside this USD book, not a EURJPY price.
 - A trade is in the book when its trade date is on or before the marked close. Start does not add or remove trades. Day, inception, exposure and VaR are the whole book. Start only moves window P&L, the P&L history, and the exposure path.
-- Calendars run from the first cache date on or after 2026-01-01 through the last cached close. Here that first date is 2026-01-02. If you pick a day that is not a close, the page uses the latest close on or before it. VaR and the worst day still look back to 2024. A pair that was not open on the VaR day is still in the VaR, at today's size.
+- Calendars run from the first cache date on or after 2026-01-01 through the last cached close. Here that first date is 2026-01-02. If a day that does not have a close is picked, the page uses the latest close on or before it. VaR and the worst day still look back to 2024. A pair that was not open on the VaR day is still in the VaR, at end date's size.
 - Day P&L uses the previous cache row. On a Monday that is Friday, so the weekend is in the number.
 - A missing close is not filled in. If the end date itself has no complete close, the book marks on the latest earlier one.
-- The ladder is spot delta in USD. Not a rates or vol report.
-- P&L is stored per pair. An opposite fill cuts the base. A full close leaves the base at 0 and the locked-in profit stays in the quote balance.
-- I did not add a parallel move (every foreign currency up by the same percent) next to the worst day.
 
 ## Run it locally
 
