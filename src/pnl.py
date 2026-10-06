@@ -13,8 +13,8 @@ VAR_MIN_DAYS = 240
 
 
 def usd_per_currency(prices):
-    # Returns dollars for one unit of each currency. USD is 1.
-    # EURUSD and AUDUSD are already dollars. The Asian pairs are 1/price.
+    # Dollar price of one unit. USD is 1.
+    # EUR and AUD are already in dollars. The Asian pairs are 1/price.
     rates = pd.DataFrame({"USD": 1.0}, index=prices.index)
     for pair in prices.columns:
         base, quote = PAIRS[pair]
@@ -26,19 +26,20 @@ def usd_per_currency(prices):
 
 
 def position_value(foreign_amount, usd_then, usd_now):
-    # Returns the profit. usd_then is one dealt price. A price column comes back as one profit per date.
+    # Foreign amount times the move in its dollar price.
+    # usd_then is one entry, or a whole column of closes.
     return foreign_amount * (usd_now - usd_then)
 
 
 def _one_pair(frame, pair, column):
-    # Returns one pair's dates as a series, taken from the long table.
+    # One pair, indexed by date.
     rows = frame.loc[frame["currency_pair"] == pair]
     return rows.set_index("date")[column].sort_index()
 
 
 def _position_values(book, rates):
-    # Returns inception P&L, one row per date per pair.
-    # Fills in the same pair are added. Dates before a fill are left out.
+    # Inception P&L, one row per date per pair.
+    # Dates before a fill are left out.
     # A missing close on any open fill blanks that pair.
     frames = []
     for trade in book.itertuples(index=False):
@@ -64,7 +65,7 @@ def _position_values(book, rates):
         return pd.DataFrame(columns=["date", "currency_pair", "value"])
     fills = pd.concat(frames, ignore_index=True)
 
-    #Sums up to one row of pnl per currency pair per date. 
+    # Same-day fills in one pair become one row.
     rows = []
     for pair in fills["currency_pair"].drop_duplicates():
         this_pair = fills.loc[fills["currency_pair"] == pair]
@@ -79,9 +80,9 @@ def _position_values(book, rates):
 
 
 def _day_changes(values):
-    # Returns day P&L, one row per date per pair: today's value minus yesterday's.
-    # The pair's first row has no previous close, so that day's P&L is the value itself.
-    # A blank first row stays blank. Do not fill it from a later close.
+    # Today's value minus yesterday's.
+    # The first row has no previous close, so that day is the value itself.
+    # A blank first row stays blank. Don't fill it from a later close.
     frames = []
     for pair in values["currency_pair"].drop_duplicates():
         series = _one_pair(values, pair, "value")
@@ -99,8 +100,8 @@ def _day_changes(values):
 
 
 def _window_pnl(value, start, as_of):
-    # value is a series of inception pnl values for a single currency pair.
-    # Returns window P&L: end value minus the start value. A pair whose first row is after the start contributes its end value.
+    # End value minus the value on the start close.
+    # If the pair opens after the start, there is nothing to subtract.
     value = value.sort_index()
     end = value.at[as_of]
     if value.index[0] > start:
@@ -111,8 +112,8 @@ def _window_pnl(value, start, as_of):
 
 
 def _book_history(values, day):
-    # Returns one row per date. Day P&L and inception P&L are the sums of the pairs with a row that day.
-    # A blank pair on that date blanks the total.
+    # One row per date, pairs summed.
+    # One blank pair blanks the day.
     if values.empty:
         return pd.DataFrame(columns=["date", "day_pnl_usd", "cumulative_pnl_usd"])
     rows = []
@@ -129,7 +130,7 @@ def _book_history(values, day):
 
 
 def _dealt_pnl(book, rates):
-    # Returns entry-to-close P&L on the first close on or after each trade date.
+    # Gap from the dealt price to the first close on or after the trade date.
     # Zero when the entry is that close. A weekend trade lands on the next close.
     total = pd.Series(0.0, index=rates.index)
     for trade in book.itertuples(index=False):
@@ -152,11 +153,10 @@ def _dealt_pnl(book, rates):
 
 
 def _dollar_cross(quantities, rates):
-    # Returns Dollar and Cross per date for balances already open yesterday.
-    # One vote per foreign currency held yesterday.
+    # Dollar and Cross for balances already open yesterday. One vote per foreign currency.
     # Dollar = yesterday's foreign net times that average.
-    # Cross = each currency's move minus that average, times yesterday's USD value.
-    # A fill's entry-to-close P&L is not in here. _split_with_deals adds it to Cross.
+    # Cross = each move minus that average, times yesterday's USD value.
+    # The dealt-price gap is not in here. _split_with_deals adds it to Cross.
     foreign = quantities.drop(columns="USD", errors="ignore")
     fx = rates.reindex(index=quantities.index, columns=foreign.columns)
     prev_qty = foreign.shift(1)
@@ -191,7 +191,7 @@ def _dollar_cross(quantities, rates):
 
 
 def _split_with_deals(quantities, rates, book):
-    # Dollar stays yesterday's book. A fill dealt off the close is added to Cross on its first mark.
+    # Dollar stays yesterday's book. A fill off the close is added to Cross.
     split = _dollar_cross(quantities, rates)
     dealt = _dealt_pnl(book, rates).reindex(split.index)
     split = split.copy()
@@ -200,7 +200,7 @@ def _split_with_deals(quantities, rates, book):
 
 
 def _ranked_day(pnl, rank):
-    # Returns the date and the P&L at that rank. Rank 1 is the worst profit. A tie keeps the later date.
+    # Rank 1 is the worst profit. A tie keeps the later date.
     if rank < 1 or rank > len(pnl):
         raise ValueError(f"rank {rank} is outside the {len(pnl)} returns")
     frame = pnl.rename("pnl").rename_axis("date").reset_index()
@@ -210,7 +210,7 @@ def _ranked_day(pnl, rank):
 
 
 def _dollar_results(quantities, rates, as_of):
-    # Returns one column per pair: today's foreign-currency dollars times each past daily move, and those dollar amounts.
+    # Today's foreign-currency dollars times each past daily move, one column per pair.
     as_of = pd.Timestamp(as_of).normalize()
     rates = rates.loc[:as_of]
     if as_of not in rates.index:
@@ -240,7 +240,7 @@ def _dollar_results(quantities, rates, as_of):
 
 
 def _usable_var_window(results):
-    # Returns the last 252 results that can be used. A day with any blank return is dropped and is not replaced.
+    # Last 252 rows. A blank return is dropped and not replaced.
     if len(results) < VAR_LOOKBACK:
         raise ValueError(f"need {VAR_LOOKBACK} USD returns ending on the end date, found {len(results)}")
     usable = results.iloc[-VAR_LOOKBACK:].dropna(how="any")
@@ -250,8 +250,8 @@ def _usable_var_window(results):
 
 
 def historical_var(quantities, rates, as_of):
-    # Returns 95% one-day VaR, the ranked day, and one VaR row per pair. The rank is 5% of the usable days, 13th when all 252 are there.
-    # Component VaR is that day's loss by pair, and the components sum to the portfolio VaR.
+    # 95% one-day VaR. Rank is 5% of the usable days, so 13th when all 252 are there.
+    # Component VaR is that day's loss by pair. The components add up to the portfolio number.
     results, signed = _dollar_results(quantities, rates, as_of)
     window = _usable_var_window(results)
     rank = math.ceil(0.05 * len(window))
@@ -288,7 +288,7 @@ def historical_var(quantities, rates, as_of):
 
 
 def _balances(book, index):
-    # Returns currency amounts by date. Base is the notional. Quote is minus notional times the dealt price.
+    # Currency amounts by date. Base is the notional. Quote is minus notional times the dealt price.
     currencies = []
     for trade in book.itertuples(index=False):
         for currency in PAIRS[trade.currency_pair]:
@@ -304,14 +304,14 @@ def _balances(book, index):
 
 
 def _move(today, yesterday):
-    # Returns the percent change in dollars per unit. Positive means that currency strengthened.
+    # Percent change in the dollar price. Positive means that currency strengthened.
     if pd.isna(today) or pd.isna(yesterday):
         return float("nan")
     return today / yesterday - 1
 
 
 def _exposure_table(quantities, rates, as_of):
-    # Returns one row per currency on the end date: balance, dollars per unit, USD value, and the day's move.
+    # End-date ladder: balance, dollar price, USD value, day's move.
     earlier = rates.index[rates.index < as_of]
     previous = earlier[-1] if len(earlier) else None
     rows = []
@@ -339,7 +339,8 @@ def _exposure_table(quantities, rates, as_of):
 
 
 def _exposure_path(quantities, rates, start, as_of):
-    # Returns the USD value of each currency from the start date through the end date. Foreign is the non-dollar sum.
+    # USD value of each currency from the start close through the end date.
+    # Foreign is the non-dollar sum.
     window = quantities.loc[(quantities.index >= start) & (quantities.index <= as_of)]
     live = rates.reindex(index=window.index, columns=window.columns)
     values = (window * live).mask(window == 0, 0.0)
@@ -355,7 +356,7 @@ def _exposure_path(quantities, rates, start, as_of):
 
 
 def _window_history(history, start, as_of):
-    # Returns book P&L after the start date. window_cumulative is the inception P&L since that date.
+    # P&L after the start close. The line is inception since that close, not since the trade.
     if history.empty or start < history["date"].min():
         baseline = 0.0
     else:
@@ -367,7 +368,7 @@ def _window_history(history, start, as_of):
 
 
 def _split_sum(split, dates):
-    # Returns Dollar and Cross summed over these dates. One blank day blanks both totals.
+    # Dollar and Cross summed over these dates. One blank day blanks both.
     dates = [pd.Timestamp(date) for date in dates]
     if not dates:
         return float("nan"), float("nan")
@@ -378,7 +379,7 @@ def _split_sum(split, dates):
 
 
 def _same_pnl(total, dollar, cross):
-    # Returns nothing (is a Check). Raises when Dollar plus Cross is more than 5 cents away from the P&L total.
+    # Stop if Dollar plus Cross is more than 5 cents off the P&L.
     if pd.isna(total) or pd.isna(dollar) or pd.isna(cross):
         return
     if abs((dollar + cross) - total) > 0.05:
@@ -386,7 +387,7 @@ def _same_pnl(total, dollar, cross):
 
 
 def _last_complete_close(portfolio, prices, as_of):
-    # Returns the latest date on or before the end date where every open pair has a close.
+    # Latest date on or before End where every open pair has a close.
     as_of = pd.Timestamp(as_of).normalize()
     candidates = list(prices.index[prices.index <= as_of])
     if not candidates:
@@ -402,7 +403,7 @@ def _last_complete_close(portfolio, prices, as_of):
 
 
 def _position_rows(book, prices, rates, values, day, var, start, as_of):
-    # Returns the position table, one row per pair: net size, P&L, VaR, and the live spot.
+    # One row per pair: net size, P&L, VaR, live spot.
     # Fills in the pair are already netted. A flat pair keeps its locked-in P&L.
     live = rates.loc[as_of]
     by_pair = var["by_pair"].set_index("currency_pair")
@@ -444,7 +445,7 @@ def _position_rows(book, prices, rates, values, day, var, start, as_of):
 
 
 def build_report(portfolio, prices, as_of, start):
-    # Returns the headline numbers and the tables, marked on the last complete close.
+    # Headlines and tables. Marked on the last complete close, which may be before the picked End.
     requested = pd.Timestamp(as_of).normalize()
     start = pd.Timestamp(start).normalize()
     as_of = _last_complete_close(portfolio, prices, requested)

@@ -66,7 +66,7 @@ def download_prices(path=CACHE_PATH, only_if_newer=False):
 
 
 def _fetch_closes():
-    # Returns Yahoo's daily closes. Does not write the cache.
+    # Yahoo's daily closes. Does not write the file.
     tickers = []
     yahoo_to_pair = {}
     for pair in PAIRS:

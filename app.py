@@ -217,7 +217,7 @@ def _ladder(exposure):
 
 
 def _cached_on_or_before(dates, day):
-    # Returns the latest cached close on or before this calendar day.
+    # Latest cached close on or before this calendar day.
     day = pd.Timestamp(day).normalize()
     found = None
     for cached in dates:
@@ -239,7 +239,7 @@ def _should_refresh():
 
 @st.cache_resource
 def _wake_prices():
-    # Returns a short error, or a blank string when the saved cache is ready to read.
+    # Blank when the saved cache is ready. Otherwise the first line of the error.
     if not _should_refresh():
         return ""
     try:
