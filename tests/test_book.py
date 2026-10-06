@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from src.data import PAIRS, download_prices
+from src.data import PAIRS, _drop_open_day, download_prices
 from src.pnl import (
     _balances,
     _day_changes,
@@ -167,3 +167,11 @@ class SameDateKeepsTheFile(unittest.TestCase):
                 written = download_prices(path, only_if_newer=True)
             self.assertEqual(pd.Timestamp(written.index[-1]), pd.Timestamp("2026-10-06"))
             self.assertAlmostEqual(float(written.iloc[-1, 0]), 1.21)
+
+    def test_todays_bar_is_left_out(self):
+        today = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+        earlier = today - pd.Timedelta(days=1)
+        close = pd.DataFrame({"EURUSD": [1.10, 1.20]}, index=[earlier, today])
+        kept = _drop_open_day(close)
+        self.assertEqual(pd.Timestamp(kept.index[-1]), earlier)
+        self.assertNotIn(today, kept.index)

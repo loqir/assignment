@@ -129,4 +129,4 @@ The page reads `cache/fx_closes.csv`. Rebuilding it from Yahoo overwrites the fi
 
 Push the repo, including `data/portfolio.csv` and `cache/fx_closes.csv`. On Streamlit Community Cloud the main file is `app.py` and the requirements file is `requirements.txt`.
 
-If the download fails, the page keeps the saved cache and says so. A local run does not download. Set `REFRESH_PRICES` to `1` if some other host should download when it wakes. Paths are relative to this folder, so the page still finds the files when the server starts at the repo root.
+If the download fails, the page keeps the saved cache and says so. A bar dated today is left out, because that day is still trading. A local run does not download. Set `REFRESH_PRICES` to `1` if some other host should download when it wakes. Paths are relative to this folder, so the page still finds the files when the server starts at the repo root.

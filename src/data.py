@@ -90,7 +90,13 @@ def _fetch_closes():
     close = close.set_index(date_column)
     for pair in close.columns:
         close[pair] = close[pair].where(close[pair] > 0)
-    return close
+    return _drop_open_day(close)
+
+
+def _drop_open_day(close):
+    # The daily bar for today is still trading. Leave it out of the file.
+    today = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+    return close.loc[close.index < today]
 
 
 def _has_newer_date(close, path):
