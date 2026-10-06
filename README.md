@@ -16,13 +16,15 @@ EURUSD and AUDUSD uses the price directly. USDJPY, USDSGD, USDCNY, USDINR, and U
 
 `position_value` calculates P&L with  `foreign amount × (rate now − rate at point of trade)`
 
-On EURUSD and AUDUSD the foreign amount is the base notional.  rate = price
+On EURUSD and AUDUSD the foreign amount is the base notional.  rate = price.
+
         Long 1,000,000 EUR from 1.10 to 1.12 is `1,000,000 × (1.12 − 1.10) = 20,000`.
 
 On USDJPY, USDSGD, USDCNY, USDINR, and USDKRW the foreign amount is the quote currency from the trade, `−notional × price`, and rate = 1/price. 
+
         Long 10,000,000 USD at USDJPY = 150 is short 1,500,000,000 yen. As USDJPY rises from 150 to 155 that is `−1,500,000,000 × (1/155 − 1/150) = 322,581`.
 
-For each trade, P&L is calculated for all days that occur on/after the trade.
+For each trade, P&L is calculated for all days that occur on/after the trade. Important to calculate PnL with reference to trade since notional of foreign currency is important in making the P&L calculation.
 
 - **Inception P&L** is that pair's value on the end date. P&L in the same pair on the same date are summed into that one row.
 
@@ -72,9 +74,10 @@ I decided with historical, especially in the context of Asian FX. Parametric met
 
 VaR defined to be 95%, one day, historical.
 The window is the last 252 returns ending on the marked date.  A full window is the 13th worst.
+VaR applies today's foreign-currency exposure to a past return. It is not the P&L the book would have booked on that historical day.
 
 
-- **Position VaR** is for the pair alone. The position VaRs do not add up to portfolio VaR since the worst days do not occur on the same day.
+- **Position VaR** is for the pair alone. The position VaRs do not add up to portfolio VaR since the worst days for each pair do not occur on the same day.
 - **Portfolio VaR** is calculated by taking the end date positions, and simulating with historical returns per usd (rate).
 - **Component VaR** is that pair's -P&L on the portfolio's VaR day. The components add up to portfolio VaR. 
 - **Marginal VaR** is the component VaR divided by the absolute USD value of the foreign-currency leg.
@@ -91,11 +94,13 @@ Currency exposure over time is a stacked area chart which showcases how the diff
 
 P&L history is an integrated line chart and bar plot showcasing how the daily and cumulative PnL evolves over time to provide more information as to where and when the PnL is changing. This visual can be used in conjunction with the above currency exposure over time to relate past P&L changes to currency exposures
 
-
+The hosted page checks Yahoo once when the server wakes and writes the cache only when Yahoo has a newer date. A reprint of a date already in the file is ignored.
 
 ## Assumptions / Limitations
 
-Trades occur at close prices, so on the day that a trade is done, P&L = 0.
+All currency pairs involve USD 
+
+Trades are recorded at mid close prices, so on the day that a trade is done, P&L = 0.
 
 There is no carry involved in the calculations, so all P&L are from spot moves only.
 
@@ -103,27 +108,35 @@ I ignored transaction costs / slippages
 
 Using a fixed window for VaR calculation using historical returns
 
-All currency pairs involve USD 
-
 Historical VaR uses a fixed 252 returns. A large shock drops out of that window once the moment it is older than a year, so VaR no longer reflects it. I tried to account for this by having the worst-day, which keeps the biggest loss back to 2024 after it has left the VaR window.
 
-Gross exposure is the sum of absolute positions in USD and does not net longs against shorts. This is also different from sum of absolute currency exposures.
+Gross exposure is the sum of absolute positions (base-leg) in USD and does not net longs against shorts. This is also different from sum of absolute currency exposures.
+
+Yahoo Finance data source can gap and it can revise history. The data is downloaded and the cache is what the app actually uses.
+
+Onshore CNY is used instead of CNH
+
+A day with no return is dropped. Fewer than 240 usable days stops the report
+
+Currently no closing trades, so all PnL is unrealised
 
 ## Possible improvements
 
 A more comprehensive method for decomposing P&L into Dollar and Cross P&L instead of a simple average move of foreign currencies.
 
-Sourcing for interest rates and accounting for carry, which are part of a P&L calculation for holding FX positions
+Explicit calculation and display of realised P&L from closing trades separate from Inception P&L.
 
-Explicit calculation and display of realised P&L from closing trades as a part of Inception P&L.
+Sourcing for interest rates and accounting for funding/carry, which are part of a P&L calculation for holding FX positions
 
-Inclusion of other instruments like FX swaps and forwards, which ties in nicely with accounting for carry for a more holistic portfolio.
+Inclusion of other instruments like FX swaps and forwards, which ties in nicely with accounting for funding/carry for a more holistic portfolio.
 
-Inclusion of a VaR number that uses all the data, to better encapsulate past tail events.
+Strategy tags so a relative-value book is visible separately from outrights.
+
+Inclusion of another VaR number that uses all the data, to better encapsulate past tail events.
 
 Type annotations for all the functions in the code - specifying type for input and output for ease of understanding, reference and edits
 
-
+A second price source, used as a cross-check against the cache.
 
 ## How to check the numbers
 
