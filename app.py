@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from src.data import download_prices, load_portfolio, load_prices
+from src.data import CACHE_PATH, download_prices, load_portfolio, load_prices
 from src.pnl import build_report
 
 START_DATE = "2026-01-01"
@@ -231,17 +231,24 @@ def _cached_on_or_before(dates, day):
 
 
 def _should_refresh():
-    # Local runs leave the cache file alone. Community Cloud, and REFRESH_PRICES=1, download once per wake.
+    # Local runs leave the cache file alone. Community Cloud, and REFRESH_PRICES=1, may download.
     if os.environ.get("REFRESH_PRICES") == "1":
         return True
     return Path("/mount/src").exists()
 
 
-@st.cache_resource
 def _wake_prices():
     # Blank when the saved cache is ready. Otherwise the first line of the error.
+    # Skip Yahoo when the file already has the last finished weekday close.
     if not _should_refresh():
         return ""
+    finished = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize() - pd.Timedelta(days=1)
+    while finished.dayofweek >= 5:
+        finished -= pd.Timedelta(days=1)
+    if CACHE_PATH.exists():
+        saved = pd.read_csv(CACHE_PATH, usecols=["date"])
+        if len(saved) and pd.Timestamp(saved["date"].iloc[-1]).normalize() >= finished:
+            return ""
     try:
         download_prices(only_if_newer=True)
     except Exception as error:

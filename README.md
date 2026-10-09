@@ -94,7 +94,7 @@ Currency exposure over time is a stacked area chart which showcases how the diff
 
 P&L history is an integrated line chart and bar plot showcasing how the daily and cumulative PnL evolves over time to provide more information as to where and when the PnL is changing. This visual can be used in conjunction with the above currency exposure over time to relate past P&L changes to currency exposures
 
-The hosted page checks Yahoo once when the server wakes. A bar dated today is left out, because that day is still trading. If the latest finished date is already in the file, nothing is written. If Yahoo has a newer finished date, the file is replaced, so past dates are updated to the latest print as well.
+The hosted page checks the price file on each visit. If it already has the last finished weekday close, Yahoo is not called. A bar dated today is left out, because that day is still trading. If the file is behind and Yahoo has a newer finished date, the file is replaced, so past dates are updated to the latest print as well.
 
 Mark date is thrown with an error if the end date does not match the date used in the data.
 
